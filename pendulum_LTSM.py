@@ -6,6 +6,8 @@ from torch.utils.data import DataLoader, TensorDataset
 from LSTM import ImprovedLSTM
 import numpy as np
 import math
+from sklearn.metrics import mean_squared_error, r2_score
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -24,7 +26,7 @@ g, l = 9.81, 1.0       # gravity (m/s^2), pendulum length (m)
 b     = 0.15            # damping rate k/m (1/s)
 
 # Initial condition: [theta, theta_dot]
-theta0 = torch.deg2rad(torch.tensor(30.0))   # 30 degrees
+theta0 = torch.deg2rad(torch.tensor(90.0))   # 90 degrees
 x0 = torch.tensor([theta0, 0.0])              # [theta, theta_dot]
 
 # Define dynamics: dx/dt = f(t, x)
@@ -34,8 +36,8 @@ def pendulum_dynamics(t, x):
     return torch.stack([dtheta, dtheta_dt])   # [theta_dot, dtheta_dt]
 
 #Time vector
-T = 50
-N = 2000
+T = 60
+N = 3000
 t = torch.linspace(0., T, N+1)
 
 
@@ -95,43 +97,64 @@ for x0 in init_states:
     Xs.append(xt[:-1])                        # current
     Ys.append(xt[1:])                         # next
 
-def seqify_per_traj(X_list, Y_list, seq_len=80):
+
+# ================================
+# 3. Create Train,Valid, Test
+# ================================
+
+train_trajs = Xs[:12]
+val_trajs   = Xs[12:15]
+test_trajs  = Xs[15:]
+
+#stack training trajectories
+X_train_raw = np.vstack(train_trajs)   # [12*3000, 2]
+
+#compute normalization params on TRAIN only
+mu  = X_train_raw.mean(axis=0)
+std = X_train_raw.std(axis=0)
+
+#normalize train/val/test
+
+train_norm = (train_trajs - mu) / std
+val_norm   = (val_trajs - mu) / std
+test_norm  = (test_trajs - mu) / std
+
+
+# ================================
+# 4. create sequences Train,Valid, Test
+# ================================
+
+def create_sequences(data, seq_len=300):
     xs, ys = [], []
-    for X, Y in zip(X_list, Y_list):
-        L = len(X)
-        for i in range(L - seq_len):
-            xs.append(X[i:i+seq_len])         # [seq_len,2]
-            ys.append(Y[i:i+seq_len])         # [seq_len,2]
-    return torch.stack(xs), torch.stack(ys)
+    for traj in data:
+        for i in range(len(traj) - seq_len):
+            x = traj[i:i+seq_len]
+            y = traj[i+1:i+seq_len+1]
+            xs.append(x); ys.append(y)
+    return np.array(xs), np.array(ys)
 
-seq_len = 200
-X_seq, Y_seq = seqify_per_traj(Xs, Ys, seq_len)   # [B, L, 2]
-print("Seq dataset:", X_seq.shape, Y_seq.shape)
+Xtr, Ytr = create_sequences(train_norm, seq_len=300)
+Xva, Yva = create_sequences(val_norm,   seq_len=300)
+Xte, Yte = create_sequences(test_norm,  seq_len=300)
 
-# ================================
-# 3. Data preprocessing
-# ================================
-# normalization
-mu  = X_seq.reshape(-1,2).mean(0)
-std = X_seq.reshape(-1,2).std(0).clamp_min(1e-6)
-Xn, Yn = (X_seq - mu)/std, (Y_seq - mu)/std
 
-#split & loaders
-num = len(Xn)
-idx = torch.randperm(num)
-split = int(0.8 * num)
-tr_idx, va_idx = idx[:split], idx[split:]
-Xtr, Ytr = Xn[tr_idx], Yn[tr_idx]
-Xva, Yva = Xn[va_idx], Yn[va_idx]
+print("Seq dataset:", Xtr.shape, Ytr.shape)
 
-mu  = mu.to(device)
-std = std.to(device)
+#convert to tensor
+Xtr = torch.tensor(Xtr, dtype=torch.float32)
+Ytr = torch.tensor(Ytr, dtype=torch.float32)
+Xva = torch.tensor(Xva, dtype=torch.float32)
+Yva = torch.tensor(Yva, dtype=torch.float32)
+Xte = torch.tensor(Xte, dtype=torch.float32)
+Yte = torch.tensor(Yte, dtype=torch.float32)
+
 
 train_loader = DataLoader(TensorDataset(Xtr, Ytr), batch_size=64, shuffle=True, drop_last=True)
 val_loader   = DataLoader(TensorDataset(Xva, Yva), batch_size=128, shuffle=False)
+test_loader   = DataLoader(TensorDataset(Xte, Yte), batch_size=128, shuffle=False)
 
 # ================================
-# 4. Load LSTM model
+# 5. Load LSTM model
 # ================================
 input_size = 2   # [theta, theta_dot] only
 hidden_size = 50
@@ -142,19 +165,18 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = ImprovedLSTM(input_size, hidden_size, output_size, num_layers).to(device)
 
 
-
 # ================================
-# 5. Training
+# 6. Training
 # ================================
 criterion = torch.nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
 train_losses, val_losses = [], []
 
-epochs = 500
+epochs = 200
 
 # Early stopping setup
-patience = 50          # how many epochs to wait for improvement
+patience = 40          # how many epochs to wait for improvement
 best_val_loss = float('inf')
 patience_counter = 0
 
@@ -165,10 +187,12 @@ for ep in range(1, epochs+1):
     for sequences, targets in train_loader:
         sequences, targets = sequences.to(device), targets.to(device)
 
+        optimizer.zero_grad()
+        
         y_pred = model(sequences)             # [B,L,2]
         loss = criterion(y_pred, targets)
 
-        optimizer.zero_grad()
+        
         loss.backward()
         optimizer.step()
 
@@ -204,11 +228,10 @@ for ep in range(1, epochs+1):
             break
 
     # ---- Progress ----
-    if ep % 50 == 0:
+    if ep % 20 == 0:
         print(f"Epoch {ep:4d} | Train {train_loss:.6e} | Val {val_loss:.6e}")
 
 print(f"✅ Best val loss: {best_val_loss:.6e}") 
-
 
         
 plt.figure(figsize=(6,4))
@@ -222,241 +245,61 @@ plt.grid(True)
 plt.show()
 
 
+# ================================
+# 7. Inference
+# ================================
+
+#--Model Loading
+model.load_state_dict(torch.load("best_lstm_pendulum.pth", map_location=device))
 model.eval()
+
+all_preds = []
+all_targets = []
+
 with torch.no_grad():
-    xb, yb = next(iter(val_loader))
-    xb, yb = xb.to(device), yb.to(device)
-    pred_seq = model(xb)    # [batch, seq_len, 2]
+    for sequences, targets in test_loader:
+        sequences, targets= sequences.to(device), targets.to(device)
+        y_pred = model(sequences)
+        
+        all_preds.append(y_pred.cpu())
+        all_targets.append(targets.cpu())
+
+#stack and convert to numpy    
+all_preds = torch.cat(all_preds, dim=0).numpy()     # [Ntest, L, 2]
+all_targets = torch.cat(all_targets, dim=0).numpy()
+
+#Evaluate MSE and R2 oon flatten sequence
+mse = mean_squared_error(all_targets.reshape(-1,2), all_preds.reshape(-1,2))
+r2  = r2_score(all_targets.reshape(-1,2), all_preds.reshape(-1,2))
+
+print(f"Test MSE: {mse:.4e}")
+print(f"Test R² : {r2:.4f}")
 
 # Plot multiple sequences
-n_show = min(10, xb.shape[0])             # show up to 10 sequences
-seq_len = xb.shape[1]
+n_show = 5             # show up to 10 sequences
+test_seq_len = all_targets.shape[1]
 
 fig, axes = plt.subplots(n_show, 1, figsize=(10, 2*n_show), sharex=True)
 
 for i in range(n_show):
-    true_seq = yb[i].cpu().numpy()        # [L,2]
-    pred_seq_i = pred_seq[i].cpu().numpy()
-    
     ax = axes[i]
-    ax.plot(true_seq[:,0], 'b-', label='θ true' if i==0 else "")
-    ax.plot(true_seq[:,1], 'g-', label='θ̇ true' if i==0 else "")
-    ax.plot(pred_seq_i[:,0], 'r--', label='θ pred' if i==0 else "")
-    ax.plot(pred_seq_i[:,1], 'm--', label='θ̇ pred' if i==0 else "")
-    ax.set_ylabel("State")
+    true_seq = all_targets[i]   # [L,2]
+    pred_seq = all_preds[i]     # [L,2]
+
+    ax.plot(true_seq[:,0], 'b-', label='x1 true' if i==0 else "")
+    ax.plot(true_seq[:,1], 'g-', label='x2 true' if i==0 else "")
+    ax.plot(pred_seq[:,0], 'r--', label='x1 pred' if i==0 else "")
+    ax.plot(pred_seq[:,1], 'm--', label='x2 pred' if i==0 else "")
     ax.grid(True)
 
 axes[0].legend(loc="upper right")
 axes[-1].set_xlabel("Step in sequence")
-fig.suptitle("Pendulum: True vs LSTM (10 validation sequences)", y=0.92, fontsize=14)
+fig.suptitle("Pendulum: True vs LSTM on Test Data", y=0.92, fontsize=14)
 plt.tight_layout()
 plt.show()
 
+##################################################################################################
 
-        
-# ================================
-# Rollout Test from New Initial State
-# ================================
-model.eval()
-
-rad = math.radians(200)
-x0 = torch.tensor([rad, 0.75], dtype=torch.float32, device=device)  # [2]
-
-# normalize initial state
-state = (x0 - mu.to(device)) / std.to(device)   # [2]
-
-# add batch + seq_len dims
-state = state.unsqueeze(0).unsqueeze(0)         # [1,1,2]
-
-traj_pred = [x0.cpu().numpy()]
-steps = 2000
-
-with torch.no_grad():
-    for step in range(steps):
-        y_pred = model(state)                   # [1,1,2]
-        
-
-        # always collapse time dimension
-        y_pred = y_pred[:, -1, :]               # [1,2]
-
-        # denormalize
-        y_denorm = y_pred * std.to(device) + mu.to(device)
-        traj_pred.append(y_denorm.squeeze(0).cpu().numpy())
-
-        # re-normalize and re-shape for next input
-        state = (y_denorm - mu.to(device)) / std.to(device)   # [1,2]
-        state = state.unsqueeze(1)                            # [1,1,2]
-
-traj_pred = np.array(traj_pred)   # [steps+1, 2]        
-
-# ground truth ODE rollout (keep on CPU, since it's just for comparison)
-x_true = odeint(pendulum_dynamics, x0.cpu(), t.cpu())
-
-# Plot ODE vs LTC for the SAME initial condition
-plt.figure(figsize=(10,5))
-plt.plot(t.numpy(), x_true[:,0].numpy(), 'b--', label='θ true (ODE)')
-plt.plot(t.numpy(), x_true[:,1].numpy(), 'g--', label='θ̇ true (ODE)')
-plt.plot(t[:steps+1].numpy(), traj_pred[:,0], 'r-', label='θ pred (LSTM)')
-plt.plot(t[:steps+1].numpy(), traj_pred[:,1], 'm-', label='θ̇ pred (LSTM)')
-plt.xlabel("Time [s]")
-plt.ylabel("States")
-plt.title("Pendulum Rollout: ODE vs LSTM (IC: 200°, 0.75 rad/s)")
-plt.legend()
-plt.grid(True)
-plt.show()
-
-
-# Save model
-torch.save(model.state_dict(), "ltc_pendulum.pth")
-print("✅ Trained LTC saved to ltc_pendulum.pth")
-############################################################
-import math
-import matplotlib.pyplot as plt
-
-# ==================================
-# Plot one batch (all sequences)
-# ==================================
-# x_true: [501, 2] from odeint
-# traj:   [501, 2] from LTC rollout
-# t:      [501]   time vector
-
-plt.figure(figsize=(10,4))
-
-# θ (angle)
-plt.subplot(1,2,1)
-plt.plot(t.numpy(), x_true[:,0].numpy(), 'b-', label='θ ODE')
-plt.plot(t.numpy(), traj[:,0].numpy(), 'r--', label='θ LTC')
-plt.xlabel("Time [s]")
-plt.ylabel("θ [rad]")
-plt.title("Angle trajectory")
-plt.legend(); plt.grid(True)
-
-# θ̇ (angular velocity)
-plt.subplot(1,2,2)
-plt.plot(t.numpy(), x_true[:,1].numpy(), 'g-', label='θ̇ ODE')
-plt.plot(t.numpy(), traj[:,1].numpy(), 'm--', label='θ̇ LTC')
-plt.xlabel("Time [s]")
-plt.ylabel("θ̇ [rad/s]")
-plt.title("Angular velocity trajectory")
-plt.legend(); plt.grid(True)
-
-plt.tight_layout()
-plt.show()
-
-## plot 5 consequative sequences
-
-# pick a starting index (say 100)
-start_idx = 100
-num_seq = 5   # number of consecutive sequences to plot
-
-plt.figure(figsize=(10,5))
-
-for k in range(num_seq):
-    seq_idx = start_idx + k
-    seq = X_seq[seq_idx]   # [L,2] sequence
-    
-    plt.plot(seq[:,0], label=f'Seq {seq_idx} x1', alpha=0.8)     # angle
-    plt.plot(seq[:,1], label=f'Seq {seq_idx} x2', alpha=0.8)    # velocity
-
-plt.xlabel("Step within sequence")
-plt.ylabel("States")
-plt.title(f"{num_seq} consecutive sequences (starting at {start_idx})")
-plt.legend()
-plt.grid(True)
-plt.show()
-
-
-
-
-## plot trajectories Xs and Ys
-
-# Plot all trajectories stored in Xs and Ys
-plt.figure(figsize=(10,5))
-
-# Plot Xs (current states)
-for i, X in enumerate(Xs):
-    plt.plot(X[:,0].numpy(), label=f'Xs[{i}] θ (angle)')
-    plt.plot(X[:,1].numpy(), '--', label=f'Xs[{i}] θ̇ (velocity)')
-
-plt.title("Current states trajectories (Xs)")
-plt.xlabel("Time step")
-plt.ylabel("State values")
-plt.legend()
-plt.grid(True)
-plt.show()
-
-# Plot Ys (next states)
-plt.figure(figsize=(10,5))
-for i, Y in enumerate(Ys):
-    plt.plot(Y[:,0].numpy(), label=f'Ys[{i}] θ (angle)')
-    plt.plot(Y[:,1].numpy(), '--', label=f'Ys[{i}] θ̇ (velocity)')
-
-plt.title("Next states trajectories (Ys)")
-plt.xlabel("Time step")
-plt.ylabel("State values")
-plt.legend()
-plt.grid(True)
-plt.show()
-
-# Plot all trajectories stored in Xn and Yn (normalized)
-
-# pick some random sequences
-num_seq_to_plot = 30
-idxs = torch.randint(0, len(Xn), (num_seq_to_plot,))
-
-# Plot Xn
-plt.figure(figsize=(10, 5))
-for i, idx in enumerate(idxs):
-    seq = Xn[idx].numpy()  # shape [80, 2]
-    plt.plot(seq[:,0], label=f"x1 Xn seq {i}")     # angle
-    plt.plot(seq[:,1], label=f"x2 Xn seq {i}")    # angular velocity
-plt.xlabel("Step in sequence")
-plt.ylabel("Normalized states")
-plt.title("Sample sequences from Xn (inputs)")
-plt.legend(); plt.grid(True); plt.tight_layout()
-plt.show()
-
-
-# Plot Yn
-plt.figure(figsize=(10, 5))
-for i, idx in enumerate(idxs):
-    seq = Yn[idx].numpy()  # shape [80, 2]
-    plt.plot(seq[:,0], label=f"y1 Yn seq {i}")     # angle
-    plt.plot(seq[:,1], label=f"y1 Yn seq {i}")    # angular velocity
-plt.xlabel("Step in sequence")
-plt.ylabel("Normalized states")
-plt.title("Sample sequences from Yn (targets)")
-plt.legend(); plt.grid(True); plt.tight_layout()
-plt.show()
-
-##Visualize trained data
-# Grab one batch
-xb, yb = next(iter(train_loader))   # xb, yb shapes [B, L, 2]
-
-B, L, D = xb.shape
-print("Batch size:", B, "Seq length:", L, "Dim:", D)
-
-# Plot inputs (Xn)
-plt.figure(figsize=(10,5))
-for i in range(B):   # loop over sequences in this batch
-    plt.plot(xb[i,:,0].numpy(), alpha=0.5, color='blue')   # state 1
-    plt.plot(xb[i,:,1].numpy(), alpha=0.5, color='green')  # state 2
-plt.title("All input sequences (Xn) in one batch")
-plt.xlabel("Step")
-plt.ylabel("Normalized states")
-plt.grid(True)
-plt.show()
-
-# Plot targets (Yn)
-plt.figure(figsize=(10,5))
-for i in range(B):
-    plt.plot(yb[i,:,0].numpy(), alpha=0.5, color='red')   # state 1
-    plt.plot(yb[i,:,1].numpy(), alpha=0.5, color='orange')# state 2
-plt.title("All target sequences (Yn) in one batch")
-plt.xlabel("Step")
-plt.ylabel("Normalized states")
-plt.grid(True)
-plt.show()
 
 
 
