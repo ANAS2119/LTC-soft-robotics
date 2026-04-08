@@ -59,13 +59,13 @@ Python Requirements:
 - Joblib 1.5.2
 - matplotlib 3.10.6
 
-MATLAB Requirements:
+**MATLAB Requirements**
 - Model Predictive Control Toolbox
 - Deep Learning Toolbox
 - (Optional) Parallel Computing Toolbox
 
 **MPC Integration**
-The trained LNN is embedded into MATLAB nLMPC using:
+- The trained LNN is embedded into MATLAB nLMPC using:
 
 - StateFcn → LNN state update
 - OutputFcn → predicted output
