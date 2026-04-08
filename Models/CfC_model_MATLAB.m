@@ -79,3 +79,28 @@ end
 function y = sigmoid(x)
 y = 1 ./ (1 + exp(-x));
 end
+%---------------------------------------------------------------
+%Output Function
+%---------------------------------------------------------------
+function y = cfcOutputFcnFast(h, u) %#ok<INUSD>
+% Fast plain-MATLAB CFC output function
+%
+% h : 64x1 hidden state
+% returns:
+%   y : 6x1 physical output
+
+persistent P S
+if isempty(P)
+    P = load("cfc_params.mat");
+    S=load("scalars.mat");
+end
+
+h = double(h(:));
+
+Wout = double(P.out_proj_weight);   % 6x64
+bout = double(P.out_proj_bias(:));  % 6x1
+
+y_norm = Wout*h + bout;
+y = y_norm.*S.X_scale(4:end)'+S.X_mean(4:end)';
+y = 1.4*double(y);
+end
