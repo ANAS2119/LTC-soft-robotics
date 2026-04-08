@@ -29,8 +29,8 @@ Models Implemented
 
 Training Setup
 
-Input format: [u_k;x_k]
-Output: x_k+1
+- Input format: [u_k;x_k]
+- Output: x_k+1
 
 Dataset:
 Chirp excitation signals (training)
