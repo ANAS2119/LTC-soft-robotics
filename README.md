@@ -15,7 +15,7 @@ This project explores Liquid Neural Networks as a compact, continuous-time alter
 
 **Models Implemented**
 
-1. Liquid Time-Constant (LTC) , [GitHub Pages]([https://pages.github.com](https://github.com/KPEKEP/LTCtutorial)/)
+1. Liquid Time-Constant (LTC) , [GitHub Page](https://github.com/KPEKEP/CfCTutorial)
 - Continuous-time RNN governed by ODEs
 - Adaptive time constants
 - Strong representation of physical dynamics
