@@ -26,3 +26,16 @@ Models Implemented
 3. Comparison Models
 - Koopman-based model (baseline)
 - LSTM / RNN variants
+
+Training Setup
+
+Input format: [u_k;x_k]
+Output: x_k+1
+
+Dataset:
+Chirp excitation signals (training)
+Sine waves (validation – unseen data)
+
+Normalization:
+scaler_X.pkl → input scaling
+scaler_Y.pkl → output scaling
