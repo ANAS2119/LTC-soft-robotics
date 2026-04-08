@@ -41,7 +41,7 @@ Normalization:
 - scaler_Y.pkl → output scaling
 
 
-Evaluation Metrics
+**Evaluation Metrics**
 
 Model performance is evaluated using Mean Squared Error (MSE).
 
@@ -50,7 +50,7 @@ Validation is performed on:
 - Test 2: 2 Hz excitation
 - Different operating modes
 
-Environment Setup:
+**Environment Setup**
 
 Python Requirements:
 - Python 3.12.9
@@ -64,21 +64,21 @@ MATLAB Requirements:
 - Deep Learning Toolbox
 - (Optional) Parallel Computing Toolbox
 
-Future Work
+**Future Work**
 - Real-time deployment on physical robot
 - Hardware-in-the-loop MPC
 - Comparison with PINNs / Neural ODEs
 - FORCESPRO / CasADi acceleration
 
-Notes
+**Notes**
 - Ensure normalization is consistent between training and MATLAB inference
 - Hidden states must be initialized properly before rollout
 - Sampling time (Ts) must match training data
 
-Author:
--Anas Qutah, 
-M.S. Electrical & Computer Engineering
-, Virginia Tech
+**Authors**
+- A. Qutah and A. M. Boker, with Bradley Department of
+Electrical and Computer Engineering, Virginia Tech, Blacksburg, VA,
+USA. 
 
 For questions or collaboration:
--Email:anasaq@vt.edu
+-Email: anasaq@vt.edu
