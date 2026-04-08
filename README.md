@@ -63,3 +63,22 @@ MATLAB Requirements:
 - Model Predictive Control Toolbox
 - Deep Learning Toolbox
 - (Optional) Parallel Computing Toolbox
+
+Future Work
+- Real-time deployment on physical robot
+- Hardware-in-the-loop MPC
+- Comparison with PINNs / Neural ODEs
+- FORCESPRO / CasADi acceleration
+
+Notes
+- Ensure normalization is consistent between training and MATLAB inference
+- Hidden states must be initialized properly before rollout
+- Sampling time (Ts) must match training data
+
+Author:
+-Anas Qutah, 
+M.S. Electrical & Computer Engineering
+, Virginia Tech
+
+For questions or collaboration:
+-Email:anasaq@vt.edu
