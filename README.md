@@ -64,6 +64,12 @@ MATLAB Requirements:
 - Deep Learning Toolbox
 - (Optional) Parallel Computing Toolbox
 
+**MPC Integration**
+The trained LNN is embedded into MATLAB nLMPC using:
+
+- StateFcn → LNN state update
+- OutputFcn → predicted output
+
 **Future Work**
 - Real-time deployment on physical robot
 - Hardware-in-the-loop MPC
