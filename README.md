@@ -37,5 +37,29 @@ Chirp excitation signals (training)
 Sine waves (validation – unseen data)
 
 Normalization:
-scaler_X.pkl → input scaling
-scaler_Y.pkl → output scaling
+- scaler_X.pkl → input scaling
+- scaler_Y.pkl → output scaling
+
+
+Evaluation Metrics
+
+Model performance is evaluated using Mean Squared Error (MSE).
+
+Validation is performed on:
+- Test 1: 1 Hz excitation
+- Test 2: 2 Hz excitation
+- Different operating modes
+
+Environment Setup:
+
+Python Requirements:
+- Python 3.12.9
+- PyTorch 2.5.1
+- numpy 2.2.4
+- Joblib 1.5.2
+- matplotlib 3.10.6
+
+MATLAB Requirements:
+- Model Predictive Control Toolbox
+- Deep Learning Toolbox
+- (Optional) Parallel Computing Toolbox
