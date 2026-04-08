@@ -17,7 +17,6 @@ m=10;
 truthFcn = @koopmanTruthStateFcn;
 lnnName=@CfCStateFcnFast;
 outputprediction=@cfcOutputFcnFast;
-h_corrected=@cfcCorrectHiddenState;
 
 %% -----------------------------
 % Initial condition
@@ -182,8 +181,6 @@ for k = 1:N_steps
     % One-step prediction error
     %prediction_error(ct+1) = norm(y_pred(1:6) - y_true(1:6));
 
-    % Update LNN internal state
-    %h = h_corrected(h_pred, y_true);
     h=h_pred;
     % Store history
     %xHist(k,:) = x_true(:)';
