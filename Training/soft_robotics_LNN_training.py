@@ -24,7 +24,7 @@ import os
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Model Path
-model_path = "/home/anasaq/LTC/Modeling/PyTorch"
+model_path = "/home/......"
 
 # Add that folder to Python's module search path
 if model_path not in sys.path:
@@ -136,7 +136,7 @@ def load_soft_robot_dataset(
 
     return X, Y, df
 
-file_path = "/home/anasaq/soft_robotics/Dataset/Dataset.xlsx" 
+file_path = "/home/.........Dataset.xlsx" 
 
 X, Y, df = load_soft_robot_dataset(file_path)
 
@@ -239,8 +239,8 @@ train_loader, val_loader, scaler_X, scaler_Y = prepare_soft_robot_dataloaders(
 )
 
 #Save scalers for inference
-joblib.dump(scaler_X, "/home/anasaq/soft_robotics/scaler_X.pkl")
-joblib.dump(scaler_Y, "/home/anasaq/soft_robotics/scaler_Y.pkl")
+joblib.dump(scaler_X, "/........scaler_X.pkl")
+joblib.dump(scaler_Y, "/........scaler_Y.pkl")
 
 #=======================================
 #Pytorch-Lightning RNN training module
@@ -503,7 +503,7 @@ trainer.fit(
     learn,
     train_loader,
     val_loader,
-    ckpt_path="/home/anasaq/soft_rob_logs/checkpoints/ltc-epoch=2346-val_loss=0.0283.ckpt"
+    ckpt_path=".......ltc-epoch=2346-val_loss=0.0283.ckpt"
 )
 
 
