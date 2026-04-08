@@ -26,7 +26,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 """
 # Model Path
-model_path = "/home/anasaq/LTC/Modeling/PyTorch"
+model_path = "/.........."
 
 # Add that folder to Python's module search path
 if model_path not in sys.path:
@@ -40,7 +40,7 @@ from LSTM import ImprovedLSTM
 #load dataset
 #========================
 
-file_path = r"C:\Users\anasa\OneDrive\Documents\ARAMCO\Master\VT\Final Research\Reference\LTC\soft robot\Dataset\Dataset.xlsx"
+file_path = r"C:\Users\........\Dataset.xlsx"
 
 X, Y, df = load_soft_robot_dataset(file_path)
 
@@ -251,7 +251,7 @@ trainer.fit(
     learn,
     train_loader,
     val_loader,
-    ckpt_path=r"C:\Users\anasa\OneDrive\Documents\ARAMCO\Master\VT\Final Research\Reference\LTC\Experiment\robot_experiment\LSTM_soft_rob_logs\checkpoints\LSTM-epoch=276-val_loss=0.0014.ckpt"
+    ckpt_path=r"C:\Users.....\LSTM-epoch=276-val_loss=0.0014.ckpt"
 )
 
 trainer.fit(learn, train_loader, val_loader)
