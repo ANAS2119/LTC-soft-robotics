@@ -34,7 +34,7 @@ Training Setup
 
 Dataset:
 Chirp excitation signals (training)
-Sine waves (validation – unseen data)
+, Sine waves (validation – unseen data)
 
 Normalization:
 - scaler_X.pkl → input scaling
